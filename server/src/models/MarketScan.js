@@ -40,6 +40,14 @@ const marketScanSchema = new mongoose.Schema(
       default: {},
     },
     scanResults: {
+      isLive: {
+        type: Boolean,
+        default: false,
+      },
+      dataSource: {
+        type: String,
+        default: '',
+      },
       totalProducts: Number,
       uniqueMerchants: Number,
       priceStats: {

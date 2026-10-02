@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext.jsx';
 
 // Pages
+import LandingPage from './pages/LandingPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SignupPage from './pages/SignupPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
@@ -30,6 +31,7 @@ function AppLayout() {
 
 export default function App() {
   const { loading } = useAuth();
+  const { pathname } = useLocation();
 
   if (loading) {
     return (
@@ -41,10 +43,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative overflow-x-hidden">
-      <Background3D />
+      {/* The landing page renders its own WebGL scene */}
+      <Background3D enabled={pathname !== '/'} />
       <div className="relative z-10">
         <Routes>
         {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 

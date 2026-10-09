@@ -11,10 +11,14 @@ export const connectDB = async () => {
   }
 
   try {
-    const conn = await mongoose.connect(uri);
+    const conn = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+    });
     console.log(`✅ MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
+    console.warn('⚠️  MongoDB connection failed:', error.message);
     console.warn('   Server will continue but database features will not work.');
+    console.warn('   → Make sure MongoDB is running: mongod --dbpath /data/db');
   }
 };

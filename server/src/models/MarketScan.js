@@ -99,6 +99,87 @@ const marketScanSchema = new mongoose.Schema(
           supportingProducts: [String],
         },
       ],
+      opportunityMap: {
+        points: [
+          {
+            id: String,
+            title: String,
+            price: Number,
+            rating: Number,
+            reviewCount: Number,
+            merchant: String,
+            productUrl: String,
+            imageUrl: String,
+            currency: String,
+            weight: Number,
+          },
+        ],
+        whitespaceZones: [
+          {
+            bandLabel: String,
+            priceMin: Number,
+            priceMax: Number,
+            ratingThreshold: Number,
+            competitorCount: Number,
+            avgDensity: Number,
+            ratingBand: String,
+            rationale: String,
+            sampleProductId: String,
+            supportingProducts: [
+              {
+                id: String,
+                title: String,
+                price: Number,
+                rating: Number,
+                merchant: String,
+              },
+            ],
+          },
+        ],
+        stats: {
+          totalProducts: Number,
+          pricedProducts: Number,
+          ratedProducts: Number,
+          medianPrice: Number,
+          medianRating: Number,
+        },
+      },
+      radarScorecard: {
+        axes: [
+          {
+            axis: String,
+            value: Number,
+            higherMeans: String,
+          },
+        ],
+        summary: {
+          totalProducts: Number,
+          uniqueMerchants: Number,
+          fieldsComplete: Number,
+        },
+      },
+      featureGap: {
+        tableStakes: [
+          {
+            feature: String,
+            count: Number,
+            percentage: Number,
+            category: String,
+            interpretation: String,
+          },
+        ],
+        differentiatorGaps: [
+          {
+            feature: String,
+            count: Number,
+            percentage: Number,
+            category: String,
+            interpretation: String,
+          },
+        ],
+        totalProducts: Number,
+        uniqueFeatureCount: Number,
+      },
       relatedSearches: [String],
       trendSignals: [
         {

@@ -5,6 +5,7 @@ import { searchGoogleShopping, searchRelatedQueries } from '../services/serpApiS
 import { normalizeShoppingResults } from '../services/dataNormalizer.js';
 import { analyzeScan } from '../services/marketAnalysisService.js';
 import { identifyOpportunities } from '../services/opportunityService.js';
+import { computeIntelligence } from '../services/intelligenceService.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 /**
@@ -117,6 +118,74 @@ export const deleteScan = async (req, res, next) => {
 };
 
 /**
+ * GET /api/scans/:id/products — Full product listings for a scan (evidence links, X-Ray, simulator).
+ */
+export const getScanProducts = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) throw new AppError('User not found.', 401);
+
+    const scan = await MarketScan.findById(req.params.id).lean();
+    if (!scan) throw new AppError('Scan not found.', 404);
+    if (scan.userId.toString() !== user._id.toString()) {
+      throw new AppError('Access denied.', 403);
+    }
+
+    const products = await Product.find({ scanId: scan._id })
+      .select('-rawData')
+      .sort({ reviewCount: -1 })
+      .lean();
+
+    res.json({ products, total: products.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/scans/compare — Multi-market regional comparison.
+ * Body: { scanIds: [id1, id2, ...] } — must belong to the user.
+ * Returns side-by-side pricing, merchants, competition and opportunity scores.
+ */
+export const compareScans = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ firebaseUid: req.user.uid });
+    if (!user) throw new AppError('User not found.', 401);
+
+    const { scanIds } = req.body || {};
+    if (!Array.isArray(scanIds) || scanIds.length < 2 || scanIds.length > 4) {
+      throw new AppError('Provide between 2 and 4 scan IDs to compare.', 400);
+    }
+
+    const scans = await MarketScan.find({ _id: { $in: scanIds }, userId: user._id })
+      .select('query country status scanResults.totalProducts scanResults.uniqueMerchants scanResults.priceStats scanResults.topMerchants scanResults.competitionLevel scanResults.ratingStats createdAt query')
+      .lean();
+
+    if (scans.length < 2) {
+      throw new AppError('At least 2 of the provided scans must exist and belong to you.', 400);
+    }
+
+    const comparison = scans.map((s) => ({
+      scanId: String(s._id),
+      query: s.query,
+      country: s.country,
+      status: s.status,
+      createdAt: s.createdAt,
+      totalProducts: s.scanResults?.totalProducts || 0,
+      uniqueMerchants: s.scanResults?.uniqueMerchants || 0,
+      priceStats: s.scanResults?.priceStats || null,
+      avgRating: s.scanResults?.ratingStats?.average || null,
+      competitionLevel: s.scanResults?.competitionLevel || null,
+      topMerchants: (s.scanResults?.topMerchants || []).slice(0, 5),
+    }));
+
+    res.json({ comparison });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Execute the full scan pipeline:
  * 1. Search via SerpApi
  * 2. Normalize results
@@ -164,6 +233,9 @@ async function executeScanPipeline(scanId, scanData) {
         featureFrequency: [],
         competitionLevel: { score: 0, label: 'Unknown', description: 'No products found for this query.' },
         opportunities: [],
+        opportunityMap: { points: [], whitespaceZones: [], stats: null },
+        radarScorecard: null,
+        featureGap: { tableStakes: [], differentiatorGaps: [], totalProducts: 0 },
         relatedSearches: relatedData.relatedSearches || [],
         trendSignals: [],
       };
@@ -188,10 +260,14 @@ async function executeScanPipeline(scanId, scanData) {
     // Step 5: Identify opportunities
     const opportunities = await identifyOpportunities(scan._id, analysisResults);
 
+    // Step 6: Compute deep intelligence (opportunity map, radar, feature gap)
+    const intelligence = await computeIntelligence(scan._id);
+
     // Save all results
     scan.scanResults = {
       ...analysisResults,
       opportunities,
+      ...intelligence,
       isLive: !!shoppingData.searchMetadata?.isLive,
       dataSource: shoppingData.searchMetadata?.source || 'SerpApi Live Google Shopping',
       relatedSearches: [

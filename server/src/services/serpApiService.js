@@ -37,7 +37,7 @@ const MERCHANTS_BY_COUNTRY = {
 export async function searchGoogleShopping({ query, country = 'in', minPrice, maxPrice }) {
   const apiKey = process.env.SERPAPI_KEY;
 
-  if (!apiKey || apiKey.trim() === '') {
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'your_serpapi_key_here') {
     console.warn(`[MarketLens] SERPAPI_KEY is not set in server/.env. Using realistic commerce simulation for query: "${query}" (${country.toUpperCase()}).`);
     console.warn('             To use live Google Shopping results, add your free key to server/.env: SERPAPI_KEY=...');
     return generateSimulatedShoppingData({ query, country, minPrice, maxPrice });
@@ -90,7 +90,7 @@ export async function searchGoogleShopping({ query, country = 'in', minPrice, ma
 export async function searchRelatedQueries({ query, country = 'in' }) {
   const apiKey = process.env.SERPAPI_KEY;
 
-  if (!apiKey || apiKey.trim() === '') {
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'your_serpapi_key_here') {
     return {
       relatedSearches: [
         `${query} best price`,
@@ -209,6 +209,7 @@ function generateSimulatedShoppingData({ query, country = 'in', minPrice, maxPri
 
 /**
  * Wrapper around SerpApi getJson that returns a promise.
+ * Only called when a valid API key is available.
  */
 function serpApiGetJson(params) {
   return new Promise((resolve, reject) => {

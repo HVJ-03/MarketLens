@@ -8,6 +8,7 @@ import SignupPage from './pages/SignupPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import NewScanPage from './pages/NewScanPage.jsx';
 import ScanDetailPage from './pages/ScanDetailPage.jsx';
+import CompareMarketsPage from './pages/CompareMarketsPage.jsx';
 import ReportsListPage from './pages/ReportsListPage.jsx';
 import ReportDetailPage from './pages/ReportDetailPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/new-scan" element={<NewScanPage />} />
             <Route path="/scan/:id" element={<ScanDetailPage />} />
+            <Route path="/compare" element={<CompareMarketsPage />} />
             <Route path="/reports" element={<ReportsListPage />} />
             <Route path="/reports/:id" element={<ReportDetailPage />} />
             <Route path="/profile" element={<ProfilePage />} />

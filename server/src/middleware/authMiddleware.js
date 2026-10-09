@@ -1,10 +1,19 @@
-import firebaseAdmin from '../config/firebase.js';
+import firebaseAdmin, { firebaseAuthAvailable } from '../config/firebase.js';
 
 /**
  * Express middleware that verifies Firebase ID tokens.
  * Attaches { uid, email } to req.user on success.
+ *
+ * Dev mode: when Firebase Auth is not available (no valid creds),
+ * skips authentication for testing purposes.
  */
 export const authMiddleware = async (req, res, next) => {
+  // Dev mode: skip auth when Firebase Auth is not available
+  if (process.env.NODE_ENV === 'development' && !firebaseAuthAvailable) {
+    req.user = { uid: 'dev-user', email: 'dev@marketlens.local' };
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -3,14 +3,23 @@ import { useParams, Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../services/api.js';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
+import OpportunityMap from '../components/intelligence/OpportunityMap.jsx';
+import EvidenceModal from '../components/intelligence/EvidenceModal.jsx';
+import CompetitorXRay from '../components/intelligence/CompetitorXRay.jsx';
+import PriceWarSimulator from '../components/intelligence/PriceWarSimulator.jsx';
+import RadarScorecard from '../components/intelligence/RadarScorecard.jsx';
+import FeatureGapMatrix from '../components/intelligence/FeatureGapMatrix.jsx';
 
 export default function ScanDetailPage() {
   const { id } = useParams();
   const [scan, setScan] = useState(null);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [evidenceOpp, setEvidenceOpp] = useState(null);
+  const [xrayProduct, setXrayProduct] = useState(null);
 
   const fetchScan = useCallback(async () => {
     try {
@@ -31,6 +40,16 @@ export default function ScanDetailPage() {
   useEffect(() => {
     fetchScan();
   }, [fetchScan]);
+
+  // Fetch full product listings once scan completes (for X-Ray / simulator / evidence)
+  useEffect(() => {
+    if (scan?.status !== 'completed') return;
+    let cancelled = false;
+    api.get(`/scans/${id}/products`)
+      .then((res) => { if (!cancelled) setProducts(res.data.products || []); })
+      .catch(() => {}); // non-critical
+    return () => { cancelled = true; };
+  }, [scan?.status, id]);
 
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
@@ -229,6 +248,31 @@ export default function ScanDetailPage() {
         </div>
       </div>
 
+      {/* Market Radar Scorecard (Tier A) */}
+      <RadarScorecard radarScorecard={results.radarScorecard} />
+
+      {/* Market Opportunity Map (Tier S) */}
+      <OpportunityMap
+        opportunityMap={results.opportunityMap}
+        country={scan.country}
+        onPointClick={(point) => {
+          const full = products.find((p) => p._id === point.id);
+          if (full) setXrayProduct(full);
+        }}
+      />
+
+      {/* Feature Gap Detector (Tier A) */}
+      <FeatureGapMatrix featureGap={results.featureGap} />
+
+      {/* Price War Simulator (Tier S) */}
+      {results.priceStats && (
+        <PriceWarSimulator
+          priceStats={results.priceStats}
+          products={products}
+          country={scan.country}
+        />
+      )}
+
       {/* Price Distribution Chart */}
       {results.priceDistribution && results.priceDistribution.length > 0 && (
         <div className="card-panel p-5">
@@ -336,6 +380,36 @@ export default function ScanDetailPage() {
         )}
       </div>
 
+      {/* Competitor Listings — X-Ray entry points */}
+      {products.length > 0 && (
+        <div className="card-panel p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-white tracking-tight">Competitor Listings</h2>
+              <p className="text-xs text-neutral-400">Click any listing to open its Competitor X-Ray profile</p>
+            </div>
+            <span className="text-[11px] font-mono text-neutral-500">{products.length} LISTINGS</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {products.slice(0, 12).map((p) => (
+              <button
+                key={p._id}
+                type="button"
+                onClick={() => setXrayProduct(p)}
+                className="text-left p-2.5 rounded bg-white/[0.02] border border-white/[0.06] hover:border-white/25 hover:bg-white/[0.05] transition-all cursor-pointer"
+              >
+                <p className="text-xs text-white truncate">{p.title}</p>
+                <p className="text-[11px] font-mono text-neutral-500 mt-0.5">
+                  {formatPriceDisplay(p.price, scan.country)}
+                  {p.rating != null ? ` · ${p.rating.toFixed(1)}★` : ''}
+                  {p.merchant ? ` · ${p.merchant}` : ''}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Opportunity Signals */}
       {results.opportunities && results.opportunities.length > 0 && (
         <div className="card-panel p-5">
@@ -361,11 +435,69 @@ export default function ScanDetailPage() {
                     <p className="text-[11px] text-neutral-500 font-mono">Evidence: {opp.evidence}</p>
                   </div>
                 )}
+                {/* Why? Evidence Audit (Tier A) */}
+                <button
+                  type="button"
+                  onClick={() => setEvidenceOpp({ ...opp, sampleSize: results.totalProducts })}
+                  className="mt-2 self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono bg-white/[0.05] border border-white/15 text-neutral-200 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  Why?
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Query Expansion — related search explorer */}
+      {results.relatedSearches && results.relatedSearches.length > 0 && (
+        <div className="card-panel p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-white tracking-tight">Search Intelligence &amp; Query Expansion</h2>
+              <p className="text-xs text-neutral-400">Commercial search phrases discovered from the SerpApi search graph — click to scan a niche</p>
+            </div>
+            <Link to="/compare" className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 underline underline-offset-2 shrink-0 no-underline">
+              Compare markets →
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {results.relatedSearches.slice(0, 16).map((term, i) => (
+              <Link
+                key={i}
+                to={`/new-scan?q=${encodeURIComponent(term)}&c=${scan.country}`}
+                className="px-2.5 py-1.5 rounded text-xs bg-white/[0.03] border border-white/10 text-neutral-300 hover:text-white hover:border-white/25 hover:bg-white/[0.07] transition-all no-underline"
+              >
+                {term}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Evidence Audit Modal */}
+      <EvidenceModal
+        open={!!evidenceOpp}
+        opportunity={evidenceOpp}
+        country={scan.country}
+        products={products}
+        onClose={() => setEvidenceOpp(null)}
+      />
+
+      {/* Competitor X-Ray Drawer */}
+      <CompetitorXRay
+        open={!!xrayProduct}
+        product={xrayProduct}
+        priceStats={results.priceStats}
+        country={scan.country}
+        products={products}
+        onClose={() => setXrayProduct(null)}
+      />
     </div>
   );
 }
@@ -429,6 +561,20 @@ function TelemetryScanner({ status, query, country }) {
       </div>
     </div>
   );
+}
+
+function formatPriceDisplay(value, country) {
+  if (value == null) return '—';
+  const currencyMap = { in: 'INR', us: 'USD', gb: 'GBP', de: 'EUR', fr: 'EUR', ca: 'CAD', au: 'AUD', jp: 'JPY' };
+  try {
+    return new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency: currencyMap[country] || 'USD',
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${value}`;
+  }
 }
 
 function ConfidenceBadge({ confidence }) {
